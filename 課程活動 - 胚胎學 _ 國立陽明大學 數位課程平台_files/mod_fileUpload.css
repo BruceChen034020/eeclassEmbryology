@@ -1,0 +1,68 @@
+.modal-uploader {border:3px dashed transparent; height:420px; max-height: 420px;}
+.modal-uploader-mini {width:410px; margin-left: -205px;}
+.modal-uploader-mini.modal.fade.in {top:5%;}
+.modal-uploader.drag {border-color:#999}
+.modal-uploader.draghover {border-color:#00f}
+.modal-uploader .modal-content {height:100%;}
+.modal-uploader .modal-header {background-color: #f5f5f5; border-top: 1px solid #ddd; border-radius: 5px 5px 0 0; padding: 9px;}
+.modal-uploader .modal-body {padding: 0; height: 80%;}
+.modal-uploader .modal-body>div,
+.modal-uploader .modal-body>div>div {height: 100%;}
+.modal-uploader .uploader-tips {position: absolute; bottom: 40px; left: 0; right: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #999;}
+.modal-uploader .drophere {background: url(/sys/res/icon/drag_and_drop.png) no-repeat center center;}
+.modal-uploader .thumbnails {height: 90%;  overflow: auto; padding-left: 0px;}
+.modal-uploader .item {width:97px; height: 97px; display:none; margin:5px 10px}
+.modal-uploader .item.in {display:inline-block}
+.modal-uploader .item.in.uploading {background: url(/sys/res/icon/loading2.gif) center center no-repeat}
+.modal-uploader .thumbnail {position: relative; width: 85px; height: 85px; box-sizing: content-box;}
+.modal-uploader .thumbnail > img {max-width: 80px; max-height: 80px}
+.modal-uploader .cross {position: absolute; top:2px; right:2px; cursor: pointer; display: none; }
+.modal-uploader .item:hover .cross {display: inline-block;}
+.modal-uploader .tool {position: absolute; bottom: 0; right: 0; padding: 0 2px; cursor: pointer; background: #000; opacity: 0.35; -ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=35)"; ;border-radius: 0 0 3px 3px; left: 0; transition: opacity 0.25s;}
+.modal-uploader .item:hover .tool	{opacity: 0.7;-ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=70)"; ;transition:opacity 0.25s;}
+.modal-uploader .tool i {margin-top: 3px;}
+.modal-uploader .tool .glyphicon {color: #FFF;}
+.modal-uploader .filename {color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.modal-uploader .name {float: left; overflow: hidden; max-width: 40px; text-overflow: ellipsis;}
+.modal-uploader .ext {}
+.modal-uploader .extra { background-color: #EEE; clear:left; max-height:0; overflow:hidden; transition-property: max-height, padding, border-width; transition-duration: 0.3s; transition-timing-function: ease; margin:0 10px; }
+.modal-uploader .extra.in {max-height:400px; padding: 10px; border-top: 1px solid #DDD; border-bottom: 1px solid #DDD;}
+.modal-uploader .preview {display:table; text-align:center; table-layout: fixed}
+.modal-uploader .preview-body {display:table-cell; vertical-align:middle; height:200px}
+.modal-uploader .preview-body > img {height: auto; width: auto; max-width: 100%; max-height: 100%}
+.modal-uploader .detail {}
+.modal-uploader .info {list-style: none; border-bottom:1px solid #121212; margin:10px 10px 10px 0; padding-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.modal-uploader .action {}
+.modal-uploader .modal-footer {padding: 7px 15px; position: absolute; bottom: 0px; box-sizing: border-box; width: 100%;}
+.modal-uploader .btn-uploader {position:relative; overflow:hidden; margin-right: 5px}
+.modal-uploader .btn-uploader input {position:absolute; top:0; right:0; margin:0; opacity:0; -ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=0)"; ; -webkit-transform:translate(-300px, 0) scale(4); -ms-transform:translate(-300px, 0) scale(4); transform:translate(-300px, 0) scale(4); font-size:23px; cursor:pointer}
+.modal-uploader .btn-dismiss {float:right; margin-left: 10px}
+.modal-uploader .priv-select { float: left; width: 72px; height: 22px; padding: 1px 5px; font-size: 12px; margin-right: 6px; }
+.modal-uploader .progress {margin-bottom:0; margin-top:1px;}
+
+.mod_fileUpload .upload {font-size: 12px; font-weight: normal;}
+.mod_fileUpload .header .header-text > .title	{font-size:15px; text-shadow:none;}
+.mod_fileUpload .fileUploadCfg {font-size:12px; display:inline-block; margin-left:5px;}
+.mod_fileUpload .fileUploadCfg input {margin:4px 0 0 -15px;}
+.mod_fileUpload .fileUploadCfg label {font-size:12px; margin:2px 0 4px 0; float:none;}
+
+.uploader-list {list-style: none; padding: 0; margin: 0}
+.uploader-list .item {width:90%; float:left;}
+.uploader-list .main {position: relative; display: inline-block; max-width: 100%; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow:ellipsis;}
+.uploader-list .main.editable {padding-right: 15px;}
+.uploader-list .close {position:absolute; right:0; top:0; color: red; opacity: 0.5; -ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=50)"}
+.uploader-list .close:hover {opacity: 1;-ms-filter:"progid:DXImageTransform.Microsoft.Alpha(Opacity=100)"}
+
+
+.uploadBox	{position:relative; text-align:center; display:inline-block; max-width:100%; max-height:100%; border-width: 2px; border-style: solid; border-color: #ffffff; box-shadow: 0px 0px 1px 1px #b3b3b3;}
+.uploadBox:hover	{box-shadow: 0px 0px 7px 2px rgba(82, 168, 236, 0.8);}
+.uploadBox img.cross	{position:absolute; top:5px; right:5px; height:15px; width:15px; opacity: 0.7; transition: opacity, transform linear .1s;}
+.uploadBox img.cross:hover	{opacity: 1; transform: scale(1.1);}
+.uploadBox a 		{outline:0}
+.uploadBox a img	{max-width:100%; max-height:100%}
+.uploadBox .uplaodBox-tip {position: absolute; bottom: 0; left:0; width: 100%;text-align:center; background: rgb(0,0,0); background: rgba(0,0,0,0.5); color:#fff; transition:background 0.3s ease; cursor: pointer}
+.uploadBox:hover .uplaodBox-tip {background: rgb(77, 97, 237); background: rgba(77, 97, 237, 0.5); transition:background 0.3s ease;}
+.uploadBox .loading {position: absolute; left: 5px; bottom: 2px; width:16px; height:16px; display:inline-block; color: #fff; padding-left: 20px; background: url(/sys/res/icon/loading.gif) left center no-repeat; display: none;}
+.upload-box-change {text-align: center}
+
+.formModeView .placeholder { overflow:hidden; margin-top:5px; }

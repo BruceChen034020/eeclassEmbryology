@@ -1,0 +1,40 @@
+ 
+/* custom style */
+/*.body-cpage-1*/
+
+.body-cpage-1 #main {margin-top:0; padding-top:0; width: auto; padding: 0;}
+.body-cpage-1 #main-data {width:1000px; margin:0 auto; padding-top:16px;}
+
+.body-cpage-1 #top .carousel .carouselitembox {padding:0;}
+.body-cpage-1 #top .carousel .innerbox {border:0; padding:0;}
+.body-cpage-1 #top .mod_carousel .default-margin {padding:0; margin:0;}
+
+.body-cpage-1 #top-rear,
+.body-cpage-1 #top > .body .row-fluid {width:1000px; margin: 0 auto;}
+
+.body-cpage-1 #bottom {width:auto; background:#f2f2f2; padding-top:20px;}
+.body-cpage-1 #bottom > .body {width:1000px; margin: 0 auto;} 
+/* banner */
+
+#banner .sys-canvas {
+    height: 22px;
+}
+#banner #siteMenu {
+    top: 0px;
+    left: 0px;
+}
+#banner .caption {
+    display: none;
+    top: 0px;
+    left: 0px;
+}
+
+
+#banner .banner {
+    top: 74px;
+    left: 0px;
+}
+#banner .logo {
+    top: 0px;
+    left: 0px;
+}

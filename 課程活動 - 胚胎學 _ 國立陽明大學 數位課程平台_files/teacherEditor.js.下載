@@ -1,0 +1,801 @@
+(function($) {
+    "use strict";
+
+    var editor,
+        isEditable = true,
+        isSortingChapter = false,
+        isSortingLecture = false,
+        lectureSortableSettings = {},
+        chapGroupSortableSettings = {},
+        addMenuTimeout,
+        isLectureOnMouseLeave = false,
+        sortedChapter = null;
+
+    editor = function(selector, options) {
+
+        this.options = $.extend( {}, $.fn.curriculumEditor.defaults, options );
+
+        this.tmpl = {
+            chapter: fs.tmpl( this.options.template.chapter )
+        };
+        this.url  = this.options.url;
+
+        this.curriculumContainer = selector;
+        this.chapterContainer    = this.curriculumContainer.children('.chapter-container');
+        this.chapterInsertButton = this.curriculumContainer.children('.chapter-add');
+
+        this.init();
+
+    };
+
+    editor.prototype = {
+
+        init: function() {
+
+            var self = this,
+                sender,
+                level = 0;
+
+            lectureSortableSettings = {
+                axis: 'y',
+                connectWith: '.lecture-container, .chapGroup-container.in',
+                cursor: 'move',
+                scrollSensitivity: 80,
+                scrollSpeed: 10,
+                placeholder: 'lecture ph',
+                distance: 7,
+                // opacity: 0.8,
+                start: function(e, obj) {
+                    isSortingLecture = true;
+                    obj.placeholder.height( obj.item.height() );
+                    // self.toggleEditorEditable(false);
+                    obj.item.addClass('hover');
+                },
+                beforeStop: function(e, obj) {
+                    isSortingLecture = false;
+                    // self.toggleEditorEditable(true);
+                    if ( isLectureOnMouseLeave || obj.item.hasClass('chapGroup') ) {
+                        obj.item.removeClass('hover');
+                    }
+                    level = obj.placeholder.closest('li.chapGroup').size();
+                },
+                update: function(e, obj) {
+                    if ( !!obj.sender ) {
+                        return;
+                    }
+                    self.sortOrg( obj.item, level );
+                },
+                stop: function(e, obj) {
+                    self.checkChapGroupEmpty();
+                }
+            };
+
+            chapGroupSortableSettings = {
+                axis: 'y',
+                connectWith: '.lecture-container, .chapGroup-container.in',
+                cursor: 'move',
+                scrollSensitivity: 80,
+                scrollSpeed: 10,
+                placeholder: 'lecture ph',
+                cancel: '.chapGroup-hint, .chapGroup-desc',
+                distance: 7,
+                // opacity: 0.8,
+                start: function(e, obj) {
+                    isSortingLecture = true;
+                    obj.placeholder.height( obj.item.height() );
+                    // self.toggleEditorEditable(false);
+                    sender = obj.item.closest('ul.chapGroup-container');
+                    obj.item.addClass('hover');
+                    if (obj.item.closest('ul.chapGroup-container').find('li.lecture.teacher').length == 1) {
+                        obj.item.closest('ul.chapGroup-container').addClass('chapGroup-empty');
+                        // obj.item.closest('ul.chapGroup-container').find('div.chapGroup-hint').show();
+                    }
+                },
+                over: function(e, obj) {
+                    if (!isSortingLecture) {
+                        return;
+                    }
+
+                    // hide hint when entering empty group <ul>
+                    if (obj.placeholder.closest('ul.chapGroup-container').find('li.lecture.teacher').length == 0) {
+                        obj.placeholder.closest('ul.chapGroup-container').find('div.chapGroup-hint').hide();
+                    }
+                },                
+                out: function(e, obj) {
+                    if (!isSortingLecture) {
+                        return;
+                    }
+                    // show hint when leaving empty group <ul>
+                    if (obj.placeholder.closest('ul.chapGroup-container').find('li.lecture.teacher').length == 0) {
+                        obj.placeholder.closest('ul.chapGroup-container').find('div.chapGroup-hint').show();
+                    }
+                },                
+                beforeStop: function(e, obj) {
+                    isSortingLecture = false;
+                    // self.toggleEditorEditable(true);
+                    if ( isLectureOnMouseLeave || obj.item.hasClass('chapGroup') ) {
+                        obj.item.removeClass('hover');
+                    }
+                    level = obj.placeholder.closest('li.chapGroup').size();
+
+                    // trigger mouseleave when drop outside of group <ul>
+                    // to release the group moving restriction
+                    if ( !obj.item.closest('ul').hasClass('chapGroup-container') ) {
+                        sender.mouseleave();
+                    }
+                },
+                update: function(e, obj) {
+                    if ( !!obj.sender ) {
+                        return;
+                    }         
+                    self.sortOrg( obj.item, level );
+                },
+                stop: function(e, obj) {
+                    self.checkChapGroupEmpty();
+                }
+            };
+
+            this.bindEvent();
+
+        },
+
+        bindEvent: function() {
+
+            var self = this,
+                level = 0;
+
+            $(document)
+            .ajaxStart(function(){
+                $('#loading').show();
+            })
+            .ajaxComplete(function(){
+                $('#loading').fadeOut(200);
+            });
+
+            this.curriculumContainer            
+            // for adding content of chapter
+            .on('mousedown', '.chapter>.view>.title>.draggable', function(e){                
+                $('.chapter-container .chapter').addClass('clicked');
+                if ( e.which != 1 || self.chapterContainer.sortable('option', 'disabled') ) {
+                    return;
+                }
+                isSortingChapter = true;
+                self.toggleEditorEditable(false);
+                sortedChapter = $(this).closest('li.chapter');
+                self.chapterContainer.find('.lecture-container:not(.hide)').hide();
+                self.chapterContainer.find('.panel.config:visible').hide();
+                self.chapterContainer.find('.view>.desc').hide();
+            })
+            .on('mouseenter', '.chapter>.panel', function(){
+                clearTimeout(addMenuTimeout);
+            })
+            .on('mouseleave', '.chapter>.panel', function(){
+                var panelSelector = $(this);
+                addMenuTimeout = setTimeout(function(){
+                    panelSelector.find('.dropdown').removeClass('open');
+                    panelSelector.find('button').blur();
+                }, 1000);
+            })
+            // for editing content of lecture
+            .on('mouseenter', '.lecture', function(){
+                if ( isSortingLecture ) {
+                    return;
+                }
+                if ( self.chapterContainer.find('.deleting').length !== 0 ) {
+                    $(this).removeClass('hover');
+                    return;
+                }
+                if ($(this).hasClass('chapGroup')) {
+                    $(this).removeClass('hover');
+                    return;
+                }
+                isLectureOnMouseLeave = false;
+                $(this).addClass('hover');
+            })
+            .on('mouseleave', '.lecture', function(){
+                if ( isSortingLecture ) {
+                    return;
+                }
+                if ( self.chapterContainer.find('.ui-sortable-helper').length !== 0 ) {
+                    self.chapterContainer.find('.ui-sortable-helper').addClass('hover');
+                    isLectureOnMouseLeave = true;
+                    return;
+                }
+                $(this).removeClass('hover').find('.dropdown').removeClass('open');
+            })
+            .on('mouseenter', '.lecture.chapGroup', function(){
+                $(this).closest('.chapGroup').addClass('showPanel');
+                // restrict group from being moved to another group list
+                self.chapterContainer.find('.lecture-container').sortable( "option", "connectWith", ".lecture-container" );
+            })
+            .on('mouseleave', '.lecture.chapGroup', function(){
+                $(this).closest('.chapGroup').removeClass('showPanel');
+                // release group restriction
+                self.chapterContainer.find('.lecture-container').sortable( "option", "connectWith", ".lecture-container, .chapGroup-container.in" );
+            })
+            .on('mousedown', '.lecture [data-toggle="dropdown"]', function(){      
+                self.toggleEditorEditable(false);
+                self.chapterContainer.find('.chapter>.panel').removeClass('hide');
+                $(this).closest('.panel').removeClass('hide');
+            })
+            .on('blur mouseleave', '.lecture [data-toggle="dropdown"]', function(){
+                self.toggleEditorEditable(true);
+            });
+
+            $('body').on('mouseup', function(){                
+                $('.chapter-container .chapter').removeClass('clicked');
+                if ( !isSortingChapter ) {
+                    return;
+                }
+
+                self.chapterContainer.find('.view>.desc, .lecture-container:not(.hide)').slideDown(500, function(){
+                    if ( sortedChapter === null ) {
+                        return;
+                    }
+                    $(window).scrollTo(sortedChapter, 500, {margin: true, offset: 5});
+                    sortedChapter = null;
+                });
+
+                isSortingChapter = false;
+                self.toggleEditorEditable(true);
+
+                self.chapterContainer.find('.panel.config:hidden').show();
+            });
+
+            this.chapterContainer
+            .sortable({
+                axis: 'y',
+                cursor: 'move',
+                handle: '.view>.title',
+                placeholder: 'chapter ph',
+                scrollSensitivity: 50,
+                scrollSpeed: 10,
+                cursorAt: {top:30},
+                distance: 7,
+                // opacity: 0.8,
+                start: function(e, obj) {
+                    obj.placeholder.height( obj.item.height() );
+                    obj.item.addClass('hover');
+                },
+                stop: function(e, obj) {
+                    if ( isSortingChapter ) {
+                        $('body').mouseup();
+                    }
+                    obj.item.removeClass('hover');
+                },
+                update: function(e, obj) {
+                    if ( !!obj.sender ) {
+                        return;
+                    }
+                    self.sortOrg( obj.item, level );
+                }
+            })
+            .find('.lecture-container').sortable( lectureSortableSettings )
+            .find('.chapGroup-container').sortable( chapGroupSortableSettings );
+
+        },
+
+        initCkeditor: function(id) {
+            if (!id) { return; }
+
+            var editor = CKEDITOR.instances[id];
+
+            if (!editor) {
+                CKEDITOR.replace( id , {
+                    height  : '100px',
+                    forcePasteAsPlainText : true,
+                    toolbar : [['FontSize', 'Bold', 'Italic', 'Underline', 'Strike', 'Superscript', 'TextColor', 'BGColor', 'NumberedList', 'BulletedList', 'RemoveFormat', 'Image', 'Link', 'linkMedia', 'fileupload']]
+                } );
+            }
+        },
+
+        insertChapter: function(data) {
+
+            var data = data || {},
+                chapter,
+                descTextarea;
+
+            data = {
+                id: data.id || '',
+                title: data.title || '',
+                desc: data.desc || '',
+                hideSN: data.hideSN || 'hide',
+                lectures: data.lectures || ''
+            };
+
+            chapter = $( this.tmpl.chapter(data) );
+            descTextarea = chapter.find('textarea');
+            // descTextarea.autosize();
+            chapter.children('.lecture-container').sortable( lectureSortableSettings );
+
+            this.chapterContainer.append( chapter );
+            this.autoSN();
+            this.initCkeditor(descTextarea.prop('id'));
+
+            return chapter;
+
+        },
+
+        insertLecture: function(){},
+
+        editChapter: function(chapterSelector) {
+
+            var descInputText = chapterSelector.find('.edit input[type="text"]'),
+                descTextarea = chapterSelector.find('.edit textarea');
+
+            this.toggleEditorEditable(false);
+            chapterSelector.children('.view').hide();
+            chapterSelector.children('.edit').show();
+            // chapterSelector.find('textarea').autosize();
+
+            descTextarea.data('originalData', descTextarea.val());
+            this.initCkeditor(descTextarea.prop('id'));
+
+            descInputText.focus();
+        },
+
+        saveChapter: function(chapterSelector, isCancel) {
+
+            var self = this,
+                editSelector   = chapterSelector.children('.edit'),
+                viewSelector   = chapterSelector.children('.view'),
+                columnSelector = {
+                    view: {
+                        title: viewSelector.find('.title .value'),
+                        draft: viewSelector.find('.title .hint'),
+                        desc:  viewSelector.children('.desc')
+                    },
+                    edit: {
+                        title: editSelector.find('input.content'),
+                        draft: editSelector.find('.editDraft'),
+                        desc:  editSelector.find('textarea.content')
+                    }
+                },
+                value = {
+                    view: {
+                        title: $.trim( columnSelector.view.title.text() ),
+                        desc: $.trim( columnSelector.view.desc.text() )
+                    },
+                    edit: {
+                        title: $.trim( columnSelector.edit.title.val() ),
+                        draft: $.trim( (columnSelector.edit.draft.prop('checked')) ? 1 : 0 ),
+                        desc: CKEDITOR.instances[columnSelector.edit.desc.prop('id')].getData()
+                    }
+                };
+
+            if ( !!isCancel ) {
+
+                CKEDITOR.instances[columnSelector.edit.desc.prop('id')].destroy();
+
+                if ( value.view.title == '' && value.view.desc == '' ) {
+                    this.deleteOrg(chapterSelector, 'noAJAX');
+                    this.toggleEditorEditable(true);
+                    return;
+                }
+
+                columnSelector.edit.title.val( value.view.title );
+                columnSelector.edit.desc.val( columnSelector.edit.desc.data('originalData') );
+
+                this.toggleEditorEditable(true);
+                editSelector.hide();
+                viewSelector.show();
+
+            }
+            else {
+                if ( value.edit.title == '' ) {
+                    alert( _T('form-cannotBeEmpty', {'%field%': _T('course-curriculum-title')}) );
+                    columnSelector.edit.title.focus();
+                    return;
+                }
+
+                this.toggleBtnEnable( editSelector.children('.panel') );
+
+                $.post(
+                    ( chapterSelector.data('id') == '' ) ?
+                        this.url.addChapter :
+                        this.url.editChapter,
+                    {
+                        id: chapterSelector.data('id'),
+                        to: this.chapterContainer.find('li:not(:last)').filter(':last').data('id'),
+                        name: value.edit.title,
+                        draft: value.edit.draft,
+                        desc: value.edit.desc
+                    },
+                    function(obj){
+                        self.toggleBtnEnable( editSelector.children('.panel') );
+
+                        if (obj.ret.status == 'false') {
+                            alert(obj.ret.msg);
+                            return;
+                        }
+
+                        chapterSelector.data('id', obj.ret.id);
+
+                        columnSelector.view.title.text( value.edit.title );
+                        var draftText = (value.edit.draft == 1) ? '(' + _T('draft') + ')' : '';
+                        columnSelector.view.draft.text( draftText );
+                        columnSelector.view.desc.html( value.edit.desc );
+
+                        if ( !chapterSelector.find('.insert-btn').length ) {
+                            $.get(self.url.getMenu, {chapterID: obj.ret.id}, function(html){
+                                chapterSelector.find('[data-role="chapter-edit"]').closest('.panel').prepend(html);
+                            });
+                        }
+
+                        self.toggleEditorEditable(true);
+
+                        var oldId = columnSelector.edit.desc.prop('id'),
+                            newId = chapterSelector.data('id');
+                        if (oldId.match('addTextarea')) {
+                            newId = 'addTextarea_' + newId;
+                            $('#' + oldId).prop('id', newId);
+                        }
+                        CKEDITOR.instances[oldId].destroy();
+
+                        editSelector.hide();
+                        viewSelector.show();
+                    },
+                    'json'
+                );
+
+            }
+        },
+
+        publishLecture: function(btnSelector) {
+
+            var lectureSelector = btnSelector.closest('li.lecture'),
+                url = btnSelector.data('url');
+
+            $.post(
+                url, { act: ( btnSelector.data('isDraft') ) ? 'publish' : 'unpublish' },
+                function(obj){
+
+                    if ( obj.ret.status == 'false' ) {
+                        alert(obj.ret.msg);
+                        return;
+                    }
+
+                    lectureSelector.find('.title .hint').remove();
+                    if ( obj.ret.hint !== '' ) {
+                        lectureSelector.find('.title .sn').after(obj.ret.hint);
+                    }
+
+                    btnSelector.data('isDraft', obj.ret.isDraft).text(obj.ret.text);
+
+                }, 'json'
+            );
+
+        },
+
+        editLecture: function(btnSelector) {
+
+            var box = fs.box.dialog({
+                title: btnSelector.data('title'),
+                url: btnSelector.data('url') + '&template=popup',
+                width: 780,
+                height: 580
+            });
+
+            switch ( btnSelector.data('onEscape') ) {
+
+            case 'parentReload':
+                box.on('hide', function(){
+                    window.location.reload();
+                });
+                break;
+
+            }
+
+        },
+
+        sortOrg: function(orgSelector, level) {
+
+            var self = this,
+                allOrg = this.curriculumContainer.find('li.chapter, li.lecture'),
+                index = allOrg.index( orgSelector ),
+                prevOrgID = ( index == 0 ) ? '' : allOrg.eq( index - 1 ).data('id'),
+                currOrgIDs = [ orgSelector.data('id') ];
+
+            this.toggleEditorEditable(false);
+
+            orgSelector.find('.lecture').each(function(){
+                currOrgIDs.push( $(this).data('id') );
+            });
+
+            this.autoSN();
+
+            $.post(
+                this.url.sortOrg, {from: currOrgIDs.join(','), to: prevOrgID, level: level},
+                function(obj){
+
+                    if ( obj.ret.status == 'false' ) {
+                        alert(obj.ret.msg);
+                        location.reload();
+                        return;
+                    }
+
+                    self.toggleEditorEditable(true);
+
+                }, 'json'
+            );
+
+        },
+
+        deleteOrg: function(orgSelector, type, options) {
+
+            var self = this,
+                box, // modal box
+                orgIndex = this.curriculumContainer.find('li.chapter, li.lecture').index( orgSelector ),
+                doPost = function(isRecursive, callback) {
+
+                    var isRecursive = ( isRecursive ) ? '1' : '0',
+                        deleteFull = ( options['deleteFull'] == 1 ) ? 1 : 0;
+
+                    $.post(
+                        self.url.deleteOrg, {id: orgSelector.data('id'), isRecursive: isRecursive, deleteFull: deleteFull},
+                        function(obj){
+
+                            if ( obj.ret.status == 'false' ) {
+                                alert(obj.ret.msg);
+                                orgSelector.removeClass('deleting');
+                                self.toggleEditorEditable(true);
+                                return;
+                            }
+
+                            if ( obj.ret.orgType == 'chapter' ) {
+                                orgSelector.slideUp(600, function(){
+                                    if ( typeof callback === 'function' ) {
+                                        callback();
+                                    }
+                                    $(this).remove();
+                                    self.autoSN();
+                                    self.toggleEditorEditable(true);
+                                });
+                            }
+                            else if ( obj.ret.orgType == 'media' ) {
+                                // orgSelector.hide('slide', {direction: 'left'}, 600, function(){
+                                orgSelector.slideUp(600, function(){
+                                    if ( typeof callback === 'function' ) {
+                                        callback();
+                                    }
+                                    $(this).remove();
+                                    self.autoSN();
+                                    self.toggleEditorEditable(true);
+                                });
+                            }
+
+                        }, 'json'
+                    );
+
+                };
+
+            this.toggleEditorEditable(false);
+
+            switch ( type ) {
+            case 'noAJAX':
+                orgSelector.remove();
+                this.toggleEditorEditable(true);
+                break;
+            case 'nativeConfirm':
+                orgSelector.addClass('deleting');
+                if ( !confirm(options.confirmStr) ) {
+                    orgSelector.removeClass('deleting');
+                    this.toggleEditorEditable(true);
+                    return;
+                }
+                doPost(false);
+                break;
+            case 'modalConfirm':
+                orgSelector.addClass('deleting');
+                box = fs.box.dialog({
+                    title: _T('course-curriculum-delChapter'),
+                    message: '<div style="margin-bottom:5px">' + options.confirmStr + '</div>' +
+                        '<label for="deleteOrgType-allLecture"><input id="deleteOrgType-allLecture" style="margin-top:-5px" type="radio" name="deleteOrgType"' + ( ( orgIndex == 0 ) ? ' checked' : '' ) + '> ' + _T('course-curriculum-delChConfirm-allLecture', {'%num%': options.lectureNum}) + '</label>' +
+                        '<label for="deleteOrgType-onlyChapter"><input id="deleteOrgType-onlyChapter" style="margin-top:-5px" type="radio" name="deleteOrgType"' + ( ( orgIndex == 0 ) ? ' disabled' : ' checked' ) + '> ' + _T('course-curriculum-delChConfirm-onlyChapter') + '</label>',
+                    width: 385,
+                    height: 210,
+                    buttons: [
+                        {
+                            label: _T('confirm-btn-cancel'),
+                            className: 'btn',
+                            callback: function() {
+                                orgSelector.removeClass('deleting');
+                                self.toggleEditorEditable(true);
+                            }
+                        },
+                        {
+                            label: _T('confirm-btn-yes'),
+                            className: 'btn-primary',
+                            callback: function() {
+                                doPost( $('#deleteOrgType-allLecture').prop('checked'), function() {
+                                    window.location.reload();
+                                } );
+                            }
+                        }
+                    ]
+                });
+                box.find('.modal-header > .close').remove();
+                break;
+            }
+
+        },
+
+        toggleEditorEditable: function(on) {
+
+            var panelSelector = this.curriculumContainer.find('.chapter>.panel, .lecture>.panel');
+
+            if ( typeof on !== 'undefined' ) {
+                isEditable = !on;
+            }
+
+            if ( isEditable ) {
+                // disable
+                isEditable = false;
+                this.chapterInsertButton.addClass('disabled');
+                panelSelector.addClass('hide');
+                this.chapterContainer.sortable('disable').find('.chapter>.view>.title').removeClass('sortable');
+                this.chapterContainer.find('.lecture-container').sortable('disable').find('.lecture>.main').removeClass('sortable');
+            }
+            else {
+                // enable
+                isEditable = true;
+                this.chapterInsertButton.removeClass('disabled');
+                panelSelector.removeClass('hide');
+                this.chapterContainer.sortable('enable').find('.chapter>.view>.title').addClass('sortable');
+                this.chapterContainer.find('.lecture-container').sortable('enable').find('.lecture>.main').addClass('sortable');
+            }
+
+        },
+
+        toggleBtnEnable: function(container, on) {
+
+            var btnSelector = container.find('button'),
+                isEnabled   = container.data('enabled');
+
+            if ( typeof isEnabled === 'undefined' ) {
+                isEnabled = !btnSelector.prop('disabled');
+            }
+
+            if ( typeof on !== 'undefined' ) {
+                isEnabled = !on;
+            }
+
+            if ( isEnabled ) {
+                // disable
+                btnSelector.addClass('disabled').prop('disabled', true);
+                btnSelector.filter('[data-role$="save"]').text( _T('saving') );
+            }
+            else {
+                // enable
+                btnSelector.removeClass('disabled').prop('disabled', false);
+                btnSelector.filter('[data-role$="save"]').text( _T('save') );
+            }
+
+            container.data('enabled', !isEnabled);
+
+        },
+
+        autoSN: function(type) {
+
+            var sn    = 0,
+                subSn = 0,
+                ssubSn = 0;
+
+            if ( typeof type === 'undefined' ) {                
+                // type = $('input[data-role="autoSN"]:checked').val();                
+                type =$('.chapter-container').attr('autosn');
+            }
+
+            $.post( this.url.autoSN, {
+                autoSN: type
+            });
+
+            if ( type === 'none' ) {
+                this.curriculumContainer.find('.sn').text('');
+                return;
+            }
+            switch(type) {
+                case 'none':
+                    this.curriculumContainer.find('.sn').text('');
+                break;
+
+                case 'number':
+                    this.curriculumContainer.find('li.chapter').each(function(){
+                        subSn = 0;
+                        ssubSn = 0;
+                        $(this).find('.view .sn').text( ++sn + '.' );
+                        $(this).find("li.lecture").each(function(){
+                            if ($(this).hasClass("chapGroup")) {
+                                ssubSn = 0;
+                            }
+
+                            if ($(this).parent().closest("li.chapGroup").length > 0) {
+                                $(this).find(".sn").text(sn + "." + subSn + "." + ++ssubSn);
+                            }
+                            else {
+                                $(this).find(".sn").text(sn + "." + ++subSn);
+                            }
+                        });
+                    });
+                break;
+                case 'english':
+                    this.curriculumContainer.find('li.chapter').each(function(){
+                        subSn = 0;
+                        $(this).find('.view .sn').text( fs.util.numToENG(++sn) + '.' );
+                        $(this).find("li.lecture").each(function(){
+                            if ($(this).hasClass("chapGroup")) {
+                                ssubSn = 0;
+                            }
+
+                            if ($(this).parent().closest("li.chapGroup").length > 0) {
+                                $(this).find(".sn").text(subSn + "." + ++ssubSn);
+                            }
+                            else {
+                                $(this).find(".sn").text(++subSn + ".");
+                            }
+                        });
+                    });
+                break;
+            }
+        },
+
+        checkChapGroupEmpty: function() {
+            this.curriculumContainer.find('.chapGroup-container').each(function(){
+                if ($(this).find('li.lecture.teacher').length > 0) {
+                    $(this).removeClass('chapGroup-empty');
+                    $(this).find('div.chapGroup-hint').hide();
+                }
+                else {
+                    $(this).addClass('chapGroup-empty');
+                    $(this).find('div.chapGroup-hint').show();
+                }
+            });
+        }
+
+    };
+
+    $.fn.curriculumEditor = function(options) {
+
+        var args = arguments;
+
+        this.each(function(){
+
+            var opt = (typeof options == 'object') && options,
+                data = $(this).data('curriculumEditor');
+
+            if ( !data ) {
+                $(this).data('curriculumEditor', data = new editor( $(this), opt ) );
+            }
+            else if ( typeof options !== 'string' ) {
+                data.options = $.extend(true, {}, data.options, options);
+            }
+
+            if ( typeof options === 'string' ) {
+                data[options].apply(data, Array.prototype.slice.call(args, 1));
+            }
+
+        });
+
+        return this;
+
+    };
+
+    $.fn.curriculumEditor.defaults = {
+
+        template: {
+            chapter: ''
+        },
+
+        url: {}
+
+    };
+
+    $.nl2br = function(str) {
+        return (str + '').replace(/(\r\n|\n\r|\r|\n)/g, '<br>');
+    };
+
+    $.br2nl = function(str) {
+        return (str + '').replace(/<br>/g, "\n");
+    };
+
+})($);
